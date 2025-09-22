@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E-commerce — Vanilla JS (MVP)</title>
+  <style>
+    :root{
+      --bg:#0f1115; --card:#161a22; --text:#e7e9ee; --muted:#a7afc0; --brand:#6ee7b7; --danger:#ff6b6b; --focus:#93c5fd;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial}
+    a{color:inherit}
+    .container{max-width:1100px;margin-inline:auto;padding:24px}
+    header{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:16px}
+    .brand{font-weight:800;letter-spacing:.4px}
+    .controls{display:flex;flex-wrap:wrap;gap:8px}
+    input,select,button{border:1px solid #273043;background:#0e1219;color:var(--text);padding:10px 12px;border-radius:10px;outline:none}
+    input:focus,select:focus,button:focus{box-shadow:0 0 0 3px #000, 0 0 0 5px var(--focus)}
+    button{cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+    @media (max-width:1024px){.grid{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:480px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid #202635;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+    .card img{width:100%;aspect-ratio:4/3;object-fit:cover}
+    .card .content{padding:12px 12px 14px}
+    .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .price{font-weight:700}
+    .muted{color:var(--muted)}
+    .pill{font-size:12px;padding:4px 8px;border-radius:999px;background:#1e2532;color:#b9c3d9;border:1px solid #283140}
+
+    /* Layout inferior: catálogo + carrinho */
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:20px}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}}
+
+    /* Carrinho */
+    #cart{position:sticky;top:16px;background:var(--card);border:1px solid #202635;border-radius:16px;padding:16px}
+    #cart h2{margin:0 0 8px}
+    .cart-empty{color:var(--muted);padding:12px}
+    .cart-item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #243042}
+    .cart-item:first-child{border-top:none}
+    .cart-item img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+    .qty{display:inline-flex;align-items:center;border:1px solid #2a3346;border-radius:10px;overflow:hidden}
+    .qty button{border:0;background:#151b25;padding:6px 10px}
+    .qty input{width:40px;text-align:center;border:0;background:transparent;padding:6px 0}
+    .remove{background:#22171b;color:#ffb4b4;border:1px solid #3a1f25}
+    .totals{display:grid;gap:6px;margin-top:10px}
+    .totals .row{justify-content:space-between}
+    .checkout-btn{width:100%;background:linear-gradient(135deg,#1e293b,#0b1220);border:1px solid #263042}
+    .checkout-btn strong{color:var(--brand)}
+
+    /* Checkout Dialog */
+    dialog{border:0;border-radius:18px;background:#0e1320;color:var(--text);max-width:680px;width:clamp(320px,90vw,680px)}
+    dialog::backdrop{background:rgba(0,0,0,.65)}
+    .dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid #1f2533}
+    .dialog-content{padding:16px}
+    .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .col-2{grid-column:span 2}
+    .col-3{grid-column:span 3}
+    .col-4{grid-column:span 4}
+    @media (max-width:640px){.form-grid{grid-template-columns:1fr}.col-2,.col-3,.col-4{grid-column:1}}
+    label{display:grid;gap:6px;font-size:14px}
+    .help{font-size:12px;color:var(--muted)}
+    .error{color:var(--danger)}
+    .bar{height:1px;background:#1f2737;margin:8px 0 16px}
+
+    /* Product detail */
+    .detail{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .thumbs{display:flex;gap:8px;margin-top:8px}
+    .thumbs img{width:48px;height:48px;border-radius:8px;border:1px solid #2a3346;cursor:pointer}
+    .detail .buy{display:flex;gap:8px;align-items:center}
+
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">🛍️ <span aria-hidden="true"></span>E‑commerce (Vanilla JS)</div>
+      <div class="controls" role="region" aria-label="Filtros e ordenação">
+        <input id="q" type="search" placeholder="Buscar por nome…" aria-label="Buscar por nome" />
+        <select id="cat" aria-label="Filtrar por categoria">
+          <option value="">Todas as categorias</option>
+        </select>
+        <select id="sort" aria-label="Ordenar">
+          <option value="name-asc">Nome (A→Z)</option>
+          <option value="name-desc">Nome (Z→A)</option>
+          <option value="price-asc">Preço (↑)</option>
+          <option value="price-desc">Preço (↓)</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="layout">
+      <main>
+        <div id="catalog" class="grid" aria-live="polite"></div>
+      </main>
+      <aside id="cart" aria-label="Carrinho de compras">
+        <h2>Carrinho</h2>
+        <div id="cartItems" class="stack"></div>
+        <div id="cartEmpty" class="cart-empty">Seu carrinho está vazio.</div>
+        <div class="totals" id="totals" hidden>
+          <div class="row"><span>Subtotal</span><strong id="subtotal">R$ 0,00</strong></div>
+          <div class="row"><span>Frete</span><span class="muted">Calculado no checkout</span></div>
+          <button class="checkout-btn" id="btnCheckout" disabled><strong>Ir para o checkout</strong></button>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Dialog: Detalhe do Produto -->
+  <dialog id="dlgDetail" aria-label="Detalhes do produto">
+    <div class="dialog-header">
+      <strong id="detailTitle">Produto</strong>
+      <button id="closeDetail" aria-label="Fechar">✕</button>
+    </div>
+    <div class="dialog-content">
+      <section class="detail">
+        <div>
+          <img id="detailImage" src="" alt="" style="width:100%;border-radius:12px;border:1px solid #243042;aspect-ratio:4/3;object-fit:cover" />
+          <div class="thumbs" id="detailThumbs"></div>
+        </div>
+        <div>
+          <p id="detailDesc" class="muted"></p>
+          <p class="row"><span class="pill" id="detailCat"></span> <strong id="detailPrice" class="price"></strong></p>
+          <div class="buy">
+            <label class="sr-only" for="detailQty">Quantidade</label>
+            <input id="detailQty" type="number" min="1" value="1" style="width:88px" />
+            <button id="addToCart">Adicionar ao carrinho</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <!-- Dialog: Checkout -->
+  <dialog id="dlgCheckout" aria-label="Checkout">
+    <div class="dialog-header">
+      <strong>Checkout</strong>
+      <button id="closeCheckout" aria-label="Fechar">✕</button>
+    </div>
+    <div class="dialog-content">
+      <form id="formCheckout" novalidate>
+        <div class="form-grid">
+          <label class="col-2">Nome completo
+            <input id="nome" required />
+          </label>
+          <label>CPF
+            <input id="cpf" inputmode="numeric" pattern="\d{11}" placeholder="Somente números" />
+            <span class="help">Opcional para o MVP</span>
+          </label>
+          <label>CEP
+            <input id="cep" required inputmode="numeric" placeholder="00000-000" aria-describedby="cepHelp" maxlength="9" />
+            <span id="cepHelp" class="help">Digite 8 dígitos: buscamos no ViaCEP automaticamente.</span>
+          </label>
+
+          <label class="col-3">Rua
+            <input id="rua" required />
+          </label>
+          <label id="numeroLabel">Número
+            <input id="numero" required />
+          </label>
+          <label class="col-2">Bairro
+            <input id="bairro" required />
+          </label>
+          <label class="col-2">Cidade
+            <input id="cidade" required />
+          </label>
+          <label class="col-2">UF
+            <input id="uf" required maxlength="2" />
+          </label>
+          <label class="col-4">Complemento
+            <input id="complemento" />
+          </label>
+        </div>
+        <div class="bar"></div>
+        <div class="row">
+          <button type="button" id="voltar">Voltar</button>
+          <button type="submit">Finalizar pedido</button>
+        </div>
+        <p id="cepMsg" class="help" aria-live="polite"></p>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+  // ====== Dados de exemplo ======
+  const PRODUCTS = [
+    {id:1, name:'Headset Gamer', price:249.9, category:'Acessórios', description:'Headset com som 7.1, microfone removível e acolchoamento macio.', images:['https://images.unsplash.com/photo-1583394838336-acd977736f90','https://images.unsplash.com/photo-1518445076-838ce5f3f3f1']},
+    {id:2, name:'Teclado Mecânico', price:399.0, category:'Periféricos', description:'Switches azuis, iluminação RGB e construção em alumínio.', images:['https://images.unsplash.com/photo-1517336714731-489689fd1ca8','https://images.unsplash.com/photo-1518779578993-ec3579fee39f']},
+    {id:3, name:'Mouse Sem Fio', price:159.9, category:'Periféricos', description:'Sensor de alta precisão, 2.4Ghz e Bluetooth, até 70h bateria.', images:['https://images.unsplash.com/photo-1587825140400-9b06d8f67b2c']},
+    {id:4, name:'Notebook 14"', price:3499.0, category:'Computadores', description:'Ryzen 5, 16GB RAM, SSD 512GB, tela Full HD.', images:['https://images.unsplash.com/photo-1517336714731-489689fd1ca8']},
+    {id:5, name:'Monitor 27" 144Hz', price:1799.9, category:'Monitores', description:'Painel IPS, 1ms, HDR10, bordas finas.', images:['https://images.unsplash.com/photo-1517336714731-489689fd1ca8']},
+    {id:6, name:'Cadeira Ergonômica', price:1299.9, category:'Móveis', description:'Apoio lombar, ajuste de altura e inclinação.', images:['https://images.unsplash.com/photo-1598300053650-3a15f3f24d2b']},
+    {id:7, name:'SSD NVMe 1TB', price:449.9, category:'Armazenamento', description:'Leituras até 3500 MB/s, 5 anos de garantia.', images:['https://images.unsplash.com/photo-1616348436166-7c2a8b3b5ffe']},
+    {id:8, name:'Webcam 1080p', price:229.0, category:'Acessórios', description:'Autofoco, microfone estéreo e clip universal.', images:['https://images.unsplash.com/photo-1517336714731-489689fd1ca8']},
+  ];
+
+  // ====== Utilidades ======
+  const fmtBRL = n => n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const byId = id => document.getElementById(id);
+
+  // ====== Estado ======
+  const state = {
+    products: PRODUCTS,
+    cart: JSON.parse(localStorage.getItem('cart')||'[]'),
+    filters: {q:'', cat:'', sort:'name-asc'},
+    currentDetail: null
+  };
+
+  // ====== Render Catálogo ======
+  const elCatalog = byId('catalog');
+  const elCatFilter = byId('cat');
+  const elQ = byId('q');
+  const elSort = byId('sort');
+
+  function initFilters(){
+    const cats = [...new Set(state.products.map(p=>p.category))];
+    cats.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; elCatFilter.appendChild(o); });
+    elQ.addEventListener('input', e=>{state.filters.q=e.target.value.trim().toLowerCase(); renderCatalog();});
+    elCatFilter.addEventListener('change', e=>{state.filters.cat=e.target.value; renderCatalog();});
+    elSort.addEventListener('change', e=>{state.filters.sort=e.target.value; renderCatalog();});
+  }
+
+  function getFiltered(){
+    let list = [...state.products];
+    const {q,cat,sort} = state.filters;
+    if(q) list=list.filter(p=>p.name.toLowerCase().includes(q));
+    if(cat) list=list.filter(p=>p.category===cat);
+    switch(sort){
+      case 'name-asc': list.sort((a,b)=>a.name.localeCompare(b.name)); break;
+      case 'name-desc': list.sort((a,b)=>b.name.localeCompare(a.name)); break;
+      case 'price-asc': list.sort((a,b)=>a.price-b.price); break;
+      case 'price-desc': list.sort((a,b)=>b.price-a.price); break;
+    }
+    return list;
+  }
+
+  function renderCatalog(){
+    const list = getFiltered();
+    elCatalog.innerHTML = '';
+    for(const p of list){
+      const card = document.createElement('article');
+      card.className='card';
+      card.innerHTML = `
+        <img src="${p.images[0]}" alt="${p.name}" loading="lazy" />
+        <div class="content">
+          <div class="row">
+            <strong>${p.name}</strong>
+            <span class="pill">${p.category}</span>
+          </div>
+          <div class="row" style="margin-top:6px">
+            <span class="price">${fmtBRL(p.price)}</span>
+            <div style="display:flex;gap:8px">
+              <button data-action="detail" data-id="${p.id}">Detalhes</button>
+              <button data-action="add" data-id="${p.id}">+ Carrinho</button>
+            </div>
+          </div>
+        </div>`;
+      elCatalog.appendChild(card);
+    }
+  }
+
+  elCatalog.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    const id = Number(btn.dataset.id);
+    const p = state.products.find(x=>x.id===id);
+    if(btn.dataset.action==='add'){ addToCart(p,1); }
+    if(btn.dataset.action==='detail'){ openDetail(p); }
+  });
+
+  // ====== Detalhe ======
+  const dlgDetail = byId('dlgDetail');
+  byId('closeDetail').onclick = ()=> dlgDetail.close();
+  const elDetailThumbs = byId('detailThumbs');
+  const elDetailImage = byId('detailImage');
+
+  function openDetail(p){
+    state.currentDetail = p;
+    byId('detailTitle').textContent = p.name;
+    byId('detailDesc').textContent = p.description;
+    byId('detailCat').textContent = p.category;
+    byId('detailPrice').textContent = fmtBRL(p.price);
+    elDetailImage.src = p.images[0];
+    elDetailImage.alt = p.name;
+    elDetailThumbs.innerHTML = '';
+    p.images.forEach((src)=>{
+      const t = document.createElement('img');
+      t.src = src; t.alt = p.name;
+      t.addEventListener('click',()=>{elDetailImage.src=src;});
+      elDetailThumbs.appendChild(t);
+    });
+    byId('detailQty').value = 1;
+    dlgDetail.showModal();
+  }
+
+  byId('addToCart').addEventListener('click',()=>{
+    const q = Math.max(1, Number(byId('detailQty').value||1));
+    addToCart(state.currentDetail, q);
+    dlgDetail.close();
+  });
+
+  // ====== Carrinho ======
+  const elCartItems = byId('cartItems');
+  const elCartEmpty = byId('cartEmpty');
+  const elTotals = byId('totals');
+  const elSubtotal = byId('subtotal');
+  const btnCheckout = byId('btnCheckout');
+
+  function persist(){ localStorage.setItem('cart', JSON.stringify(state.cart)); }
+
+  function addToCart(p, qty=1){
+    const idx = state.cart.findIndex(i=>i.id===p.id);
+    if(idx>=0) state.cart[idx].qty += qty;
+    else state.cart.push({id:p.id, name:p.name, price:p.price, img:p.images[0], qty});
+    renderCart();
+  }
+
+  function updateQty(id, qty){
+    const item = state.cart.find(i=>i.id===id);
+    if(!item) return;
+    item.qty = Math.max(1, qty);
+    renderCart();
+  }
+
+  function removeItem(id){
+    state.cart = state.cart.filter(i=>i.id!==id);
+    renderCart();
+  }
+
+  function getSubtotal(){
+    return state.cart.reduce((s,i)=> s + i.price * i.qty, 0);
+  }
+
+  function renderCart(){
+    persist();
+    elCartItems.innerHTML='';
+    if(state.cart.length===0){
+      elCartEmpty.hidden = false; elTotals.hidden = true; btnCheckout.disabled=true; return;
+    }
+    elCartEmpty.hidden = true; elTotals.hidden = false; btnCheckout.disabled=false;
+    for(const i of state.cart){
+      const node = document.createElement('div');
+      node.className='cart-item';
+      node.innerHTML = `
+        <img src="${i.img}" alt="${i.name}">
+        <div>
+          <div class="row"><strong>${i.name}</strong><span>${fmtBRL(i.price)}</span></div>
+          <div class="row" style="margin-top:6px;gap:8px">
+            <div class="qty">
+              <button data-dec="${i.id}" aria-label="Diminuir">−</button>
+              <input data-qty="${i.id}" type="number" min="1" value="${i.qty}">
+              <button data-inc="${i.id}" aria-label="Aumentar">+</button>
+            </div>
+            <button class="remove" data-remove="${i.id}">Remover</button>
+          </div>
+        </div>
+        <div><strong>${fmtBRL(i.price * i.qty)}</strong></div>`;
+      elCartItems.appendChild(node);
+    }
+    elSubtotal.textContent = fmtBRL(getSubtotal());
+  }
+
+  elCartItems.addEventListener('click', (e)=>{
+    const t = e.target;
+    const idInc = t.dataset.inc, idDec = t.dataset.dec, idRem = t.dataset.remove;
+    if(idInc){ const it=state.cart.find(x=>x.id==idInc); updateQty(it.id, it.qty+1); }
+    if(idDec){ const it=state.cart.find(x=>x.id==idDec); updateQty(it.id, it.qty-1); }
+    if(idRem){ removeItem(Number(idRem)); }
+  });
+  elCartItems.addEventListener('input', (e)=>{
+    const inp = e.target.closest('input[data-qty]');
+    if(!inp) return; updateQty(Number(inp.dataset.qty), Number(inp.value||1));
+  });
+
+  // ====== Checkout ======
+  const dlgCheckout = byId('dlgCheckout');
+  byId('closeCheckout').onclick = ()=> dlgCheckout.close();
+  byId('voltar').onclick = ()=> dlgCheckout.close();
+  btnCheckout.addEventListener('click', ()=> dlgCheckout.showModal());
+
+  const elCEP = byId('cep');
+  const elMsg = byId('cepMsg');
+  const fNumero = byId('numero');
+  const fields = {rua:byId('rua'), bairro:byId('bairro'), cidade:byId('cidade'), uf:byId('uf')};
+
+  // Máscara CEP 00000-000
+  elCEP.addEventListener('input', (e)=>{
+    let v = e.target.value.replace(/\D/g,'').slice(0,8);
+    e.target.value = v.length>5 ? v.slice(0,5)+'-'+v.slice(5) : v;
+
+    if(v.length===8){ buscarCEP(v); }
+  });
+
+  async function buscarCEP(cep){
+    elMsg.textContent = 'Buscando CEP…';
+    try{
+      const url = `https://viacep.com.br/ws/${cep}/json/`;
+      const res = await fetch(url, {method:'GET'});
+      if(!res.ok) throw new Error('Falha de rede');
+      const data = await res.json();
+      if(data.erro){
+        elMsg.textContent = 'CEP não encontrado. Preencha manualmente.';
+        // mantém campos editáveis e vazios
+        Object.values(fields).forEach(i=>{ i.value = i.value; i.readOnly=false; });
+        fNumero.focus();
+        return;
+      }
+      // Preencher e travar para evitar alterações acidentais (ainda editável se o usuário quiser)
+      fields.rua.value = data.logradouro || '';
+      fields.bairro.value = data.bairro || '';
+      fields.cidade.value = data.localidade || '';
+      fields.uf.value = (data.uf || '').toUpperCase();
+      Object.values(fields).forEach(i=> i.readOnly=false);
+      elMsg.textContent = 'Endereço preenchido via ViaCEP. Confira os dados.';
+      // Foco no número após sucesso (acessibilidade)
+      fNumero.focus();
+    }catch(err){
+      elMsg.innerHTML = `<span class="error">Falha ao consultar o ViaCEP. Você pode preencher manualmente.</span>`;
+      Object.values(fields).forEach(i=> i.readOnly=false);
+    }
+  }
+
+  byId('formCheckout').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    // Validações mínimas
+    const nome = byId('nome');
+    if(!nome.value.trim()) return alert('Informe seu nome completo.');
+    if(!elCEP.value.match(/^\d{5}-\d{3}$/)) return alert('CEP inválido. Use o padrão 00000-000.');
+    if(!fields.rua.value.trim()||!fNumero.value.trim()||!fields.bairro.value.trim()||!fields.cidade.value.trim()||!fields.uf.value.trim()){
+      return alert('Preencha todos os campos de endereço.');
+    }
+    // Simulação de pedido
+    const pedido = {
+      itens: state.cart,
+      subtotal: getSubtotal(),
+      cliente: {nome:nome.value, cep:elCEP.value, rua:fields.rua.value, numero:fNumero.value, bairro:fields.bairro.value, cidade:fields.cidade.value, uf:fields.uf.value, complemento:byId('complemento').value}
+    };
+    console.log('Pedido gerado:', pedido);
+    alert('Pedido finalizado! Confira o console para ver o payload.');
+    // Reset
+    state.cart = []; renderCart(); dlgCheckout.close();
+  });
+
+  // ====== Boot ======
+  initFilters();
+  renderCatalog();
+  renderCart();
+  </script>
+</body>
+</html>

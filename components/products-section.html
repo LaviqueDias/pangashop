@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PangaShop – Products</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+
+<!-- Products -->
+<section id="products" class="px-4 py-10">
+  <div class="mx-auto max-w-6xl">
+    <!-- Controls -->
+    <div class="bg-white rounded-xl shadow p-4 flex flex-col gap-3 sm:flex-row">
+      <input id="q" type="text" placeholder="Search by name..."
+             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+
+      <select id="cat"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+        <option value="all">All categories</option>
+        <option value="Ultrabook">Ultrabook</option>
+        <option value="Gamer">Gamer</option>
+        <option value="Basic">Basic</option>
+      </select>
+
+      <select id="sort"
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+        <option value="relevance">Relevance</option>
+        <option value="price-asc">Price: low → high</option>
+        <option value="name-asc">Name: A → Z</option>
+      </select>
+    </div>
+
+    <p id="count" class="mt-3 text-sm text-gray-600">Showing 0 products</p>
+
+    <!-- Grid -->
+    <div id="grid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <!-- cards via JS -->
+    </div>
+  </div>
+</section>
+
+<!-- Minimal JS (put at the end of <body>) -->
+<script>
+  // Tiny Product class
+  class Product {
+    constructor(id, name, category, price) {
+      this.id = id;
+      this.name = name;
+      this.category = category;
+      this.price = price;
+    }
+  }
+
+  // Mock data (6 items)
+  const DATA = [
+    new Product(1, "Acer Aspire 5",     "Basic",     2999),
+    new Product(2, "Lenovo IdeaPad 3",  "Basic",     2799),
+    new Product(3, "Dell XPS 13",       "Ultrabook", 8999),
+    new Product(4, "MacBook Air M2",    "Ultrabook", 10999),
+    new Product(5, "Asus TUF F15",      "Gamer",     6499),
+    new Product(6, "Lenovo Legion 5",   "Gamer",     7999),
+  ];
+
+  // Helpers
+  const money = v => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  // State + refs
+  let state = { q: "", cat: "all", sort: "relevance" };
+  const $q    = document.getElementById("q");
+  const $cat  = document.getElementById("cat");
+  const $sort = document.getElementById("sort");
+  const $grid = document.getElementById("grid");
+  const $count= document.getElementById("count");
+
+  function getVisible() {
+    let list = [...DATA];
+
+    // filter by text
+    if (state.q.trim()) {
+      const q = state.q.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q));
+    }
+    // filter by category
+    if (state.cat !== "all") {
+      list = list.filter(p => p.category === state.cat);
+    }
+    // sort
+    if (state.sort === "price-asc") list.sort((a,b)=>a.price-b.price);
+    if (state.sort === "name-asc")  list.sort((a,b)=>a.name.localeCompare(b.name));
+
+    return list;
+  }
+
+  function render() {
+    const list = getVisible();
+    $grid.innerHTML = list.map(p => `
+      <article class="rounded-xl border bg-white p-4 shadow">
+        <h3 class="font-semibold text-gray-900">${p.name}</h3>
+        <p class="text-xs text-gray-500">${p.category}</p>
+        <p class="mt-2 text-lg font-bold text-gray-900">${money(p.price)}</p>
+        <button class="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 text-white text-sm hover:bg-blue-500 transition">
+          Add to cart
+        </button>
+      </article>
+    `).join("");
+    $count.textContent = `Showing ${list.length} product${list.length !== 1 ? "s" : ""}`;
+  }
+
+  // events
+  $q.addEventListener("input",  e => { state.q = e.target.value; render(); });
+  $cat.addEventListener("change", e => { state.cat = e.target.value; render(); });
+  $sort.addEventListener("change", e => { state.sort = e.target.value; render(); });
+
+  // first paint
+  render();
+</script>
+
+</body>
+</html>
